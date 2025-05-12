@@ -1,0 +1,353 @@
+# Prepare Data
+```{r, warning=FALSE}
+library(readxl)
+library(dplyr)
+library(data.table)
+library(randomForestSRC)
+library(randomForest)
+library(PRROC)
+library(pROC)
+library(caret)
+library(xgboost)
+
+af_data <- read_xlsx("synthetic_data_stats_competition_2025_final.xlsx")
+
+make_afib_flag_df <- function(data, cutoff_days) {
+  data %>%
+    mutate(
+      afib_by_cutoff = as.integer(
+        !is.na(time_to_outcome_afib_aflutter_new_post) &
+        time_to_outcome_afib_aflutter_new_post <= cutoff_days))}
+
+make_bloodwork_flags <- function(data, ..., prefix = "observed_") {
+  data %>%
+    mutate(across(c(...),
+                  ~ as.integer(!is.na(.x)),
+                  .names = paste0(prefix, "{.col}")))}
+
+names(af_data) <- gsub("obstructive _sleep_apnea_icd10",
+                       "obstructive_sleep_apnea_icd10", names(af_data))
+
+df_flags <- make_bloodwork_flags(af_data,
+                                 troponin_t_hs_peri_highest,
+                                 crp_high_sensitive_peri,
+                                 tsh_peri, hga1c_peri_highest, 
+                                 glucose_fasting_peri_highest,
+                                 hgb_peri, hct_peri, rdw_peri,
+                                 wbc_peri, plt_peri, inr_peri, 
+                                 ptt_peri, esr_peri,
+                                 albumin_peri, alkaline_phophatase_peri,
+                                 alanine_transaminase_peri, 
+                                 aspartate_transaminase_peri,
+                                 bilirubin_total_peri, bilirubin_direct_peri,
+                                 urea_peri, creatinine_peri,
+                                 urine_alb_cr_ratio_peri,
+                                 sodium_peri,potassium_peri, chloride_peri,
+                                 ck_peri,
+                                 NTproBNP_peri_highest, 
+                                 glucose_random_peri_highest,
+                                 tchol_peri_highest, ldl_peri_highest, 
+                                 hdl_peri_lowest, tg_peri_highest,
+                                 iron_peri, tibc_peri, ferritin_peri)
+
+df180 <- make_afib_flag_df(df_flags, cutoff_days = 180)
+df365 <- make_afib_flag_df(df_flags, cutoff_days = 365)
+
+vars_to_remove <- c(
+  "troponin_t_hs_peri_highest",
+  "potassium_peri",
+  "crp_high_sensitive_peri",
+  "tsh_peri", 
+  "hga1c_peri_highest",
+  "glucose_fasting_peri_highest",
+  "hgb_peri", "hct_peri", 
+  "rdw_peri", "wbc_peri",
+  "plt_peri", "inr_peri",
+  "ptt_peri", "esr_peri", 
+  "albumin_peri",
+  "alkaline_phophatase_peri",
+  "alanine_transaminase_peri", 
+  "aspartate_transaminase_peri",
+  "bilirubin_total_peri",
+  "bilirubin_direct_peri", 
+  "urea_peri",
+  "creatinine_peri",
+  "urine_alb_cr_ratio_peri",
+  "sodium_peri", 
+  "chloride_peri",
+  "ck_peri",
+  "NTproBNP_peri_highest",
+  "glucose_random_peri_highest", 
+  "tchol_peri_highest",
+  "ldl_peri_highest",
+  "hdl_peri_lowest",
+  "tg_peri_highest", 
+  "iron_peri",
+  "tibc_peri",
+  "ferritin_peri",
+  "anti_platelet_oral_non_asa_any_peri",
+  "anti_coagulant_oral_any_peri",
+  "nitrates_any_peri", 
+  "ranolazine_peri",
+  "acei_peri",
+  "arb_peri",
+  "arni_entresto_peri",
+  "beta_blocker_any_peri",
+  "ivabradine_peri",
+  "ccb_dihydro_peri", 
+  "ccb_non_dihydro_peri",
+  "diuretic_loop_peri",
+  "diuretic_thiazide_peri",
+  "diuretic_low_ceiling_non_thiazide_peri",
+  "diuretic_metolazone_peri", 
+  "diuretic_indapamide_peri",
+  "diuretic_mra_peri",
+  "diuretic_vasopressin_antagonist_peri",
+  "anti_arrhythmic_any_peri", 
+  "anti_arrhythmic_amiodarone_peri",
+  "anti_arrhythmic_disopyramide_peri",
+  "digoxin_peri",
+  "amyloid_therapeutics_tafamidis_peri", 
+  "amyloid_therapeutics_diflunisal_peri",
+  "amyloid_therapeutics_patisiran_peri",
+  "amyloid_therapeutics_inotersen_peri",
+  "lipid_statin_peri", 
+  "lipid_fibrate_peri",
+  "lipid_ezetimibe_peri",
+  "lipid_PCKSK9_peri",
+  "lipid_other_peri",
+  "glucose_insulin_peri",
+  "glucose_glp_1_agonsist_peri", 
+  "glucose_ohg_biguanide_peri",
+  "glucose_ohg_alphagluc_peri", 
+  "glucose_ohg_dpp_4_peri", 
+  "glucose_ohg_sglt_2_peri", 
+  "glucose_ohg_thiazolidine_peri",
+  "glucose_ohg_repaglinide_peri",
+  "glucose_ohg_sulfonylurea_peri",
+  "glucose_ohg_other_peri", 
+  "smoking_cessation_oral_peri",
+  "smoking_cessation_nicotine_replacement_peri",
+  "patient_id",
+  "outcome_afib_aflutter_new_post", 
+  "time_to_outcome_afib_aflutter_new_post",
+  "follow_up_duration",
+  "time_to_outcome_all_cause_death",
+  "outcome_all_cause_death")
+
+# Include ande exclude ecg data from each df
+df180_ecg <- df180 %>%
+  select(-all_of(vars_to_remove)) %>%
+  na.omit() # reduces sample size by 936 
+
+df180_noecg <- df180_ecg %>%
+  select(-starts_with("ecg"))
+  
+df365_ecg <- df365 %>%
+  select(-all_of(vars_to_remove)) %>%
+  na.omit()
+
+df365_noecg <- df365_ecg %>%
+  select(-starts_with("ecg"))
+```
+
+# XGBoost Scaled 180 days No ECG
+```{r, warning=FALSE}
+set.seed(123)
+trainIndex <- createDataPartition(df180_noecg$afib_by_cutoff, p = 0.8, list = FALSE)
+train_180_noecg <- df180_noecg[trainIndex, ]
+test_180_noecg <- df180_noecg[-trainIndex, ]
+
+# XGBoost 180 days no ecg
+xgb_train_180_noecg <- xgb.DMatrix(data = as.matrix(train_180_noecg[, -ncol(train_180_noecg)]), label = as.numeric(train_180_noecg$afib_by_cutoff))
+
+xgb_test_180_noecg <- xgb.DMatrix(data = as.matrix(test_180_noecg[, -ncol(test_180_noecg)]), label = as.numeric(test_180_noecg$afib_by_cutoff))
+
+params_180_noecg <- list(
+  objective = "binary:logistic",
+  eval_metric = "auc",
+  scale_pos_weight = sum(train_180_noecg$afib_by_cutoff == "0") / sum(train_180_noecg$afib_by_cutoff == "1"))
+
+xgb_model_180_noecg <- xgb.train(
+  params = params_180_noecg,
+  data = xgb_train_180_noecg,
+  nrounds = 100,
+  verbose = 0)
+
+xgb_imp_mat_180_noecg <- xgb.importance(model = xgb_model_180_noecg)
+xgb.plot.importance(xgb_imp_mat_180_noecg, top_n = 20,
+                    main = "VarImp XGBoost Scaled 180 days no ecg")
+
+xgb_pred_180_noecg <- predict(xgb_model_180_noecg, xgb_test_180_noecg)
+
+xgb_class_pred_180_noecg <- ifelse(xgb_pred_180_noecg > 0.5, 1, 0)
+
+actual_test_180_noecg <- as.numeric(as.character(test_180_noecg$afib_by_cutoff))
+
+confusionMatrix(as.factor(xgb_class_pred_180_noecg), as.factor(actual_test_180_noecg))
+
+# Precision Recall Curve 
+pr_xgb_180_noecg <- pr.curve(
+  scores.class0 = xgb_pred_180_noecg[actual_test_180_noecg == 1],
+  scores.class1 = xgb_pred_180_noecg[actual_test_180_noecg == 0],
+  curve = TRUE)
+
+plot(pr_xgb_180_noecg, main = "Precision-Recall Curve - XGBoost scaled 180 days no ecg ", col = "red")
+
+# Calibration Curve
+
+get_calib_data <- function(pred, actual, bins = 10) {
+  calib_df <- data.frame(pred = pred, actual = actual)
+  calib_df$bin <- cut(calib_df$pred, breaks = quantile(calib_df$pred, probs = seq(0, 1, length.out = bins + 1)), include.lowest = TRUE)
+  
+  calib_summary <- calib_df %>%
+    group_by(bin) %>%
+    summarise(
+      bin_midpoint = mean(pred),
+      observed = mean(actual),
+      .groups = "drop"
+    )
+  return(calib_summary)
+}
+
+xgb_calib_180_noecg <- get_calib_data(xgb_pred_180_noecg, actual_test_180_noecg)
+
+ggplot(xgb_calib_180_noecg, aes(x = bin_midpoint, y = observed)) +
+  geom_point() +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  labs(title = "Calibration Curve - XGBoost 180 days no ecg", x = "Predicted Probability", y = "Observed Proportion") +
+  theme_minimal()
+
+# ROC Curve
+xgb_roc_180_noecg <- roc(response = test_180_noecg$afib_by_cutoff, predictor = xgb_pred_180_noecg)
+
+plot(xgb_roc_180_noecg, col = "blue", main = "ROC Curve - XGBoost 180 Days No ECG")
+abline(a = 0, b = 1, lty = 2, col = "gray")
+
+auc(xgb_roc_180_noecg)
+```
+
+# XGBoost Scaled 180 days With ECG
+```{r, warning=FALSE}
+set.seed(123)
+trainIndex_180_ecg <- createDataPartition(df180_ecg$afib_by_cutoff, p = 0.8, list = FALSE)
+train_180_ecg <- df180_ecg[trainIndex, ]
+test_180_ecg <- df180_ecg[-trainIndex, ]
+
+# XGBoost 180 days ecg
+xgb_train_180_ecg <- xgb.DMatrix(data = as.matrix(train_180_ecg[, -ncol(train_180_ecg)]), label = as.numeric(train_180_ecg$afib_by_cutoff))
+
+xgb_test_180_ecg <- xgb.DMatrix(data = as.matrix(test_180_ecg[, -ncol(test_180_ecg)]), label = as.numeric(test_180_ecg$afib_by_cutoff))
+
+params_180_ecg <- list(
+  objective = "binary:logistic",
+  eval_metric = "auc",
+  scale_pos_weight = sum(train_180_ecg$afib_by_cutoff == "0") / sum(train_180_ecg$afib_by_cutoff == "1"))
+
+xgb_model_180_ecg <- xgb.train(
+  params = params_180_ecg,
+  data = xgb_train_180_ecg,
+  nrounds = 100,
+  verbose = 1)
+
+# Variable Importance
+xgb_imp_mat_180_ecg <- xgb.importance(model = xgb_model_180_ecg)
+xgb.plot.importance(xgb_imp_mat_180_ecg, top_n = 20,
+                    main = "VarImp XGBoost Scaled 180 days ecg")
+
+xgb_pred_180_ecg <- predict(xgb_model_180_ecg, xgb_test_180_ecg)
+
+# Testing
+xgb_class_pred <- ifelse(xgb_pred_180_ecg > 0.5, 1, 0)
+
+actual_test_180_ecg <- as.numeric(as.character(test_180_ecg$afib_by_cutoff))
+
+confusionMatrix(as.factor(xgb_class_pred), as.factor(actual_test_180_ecg))
+
+# Precision Recall Curve 
+pr_xgb_180_ecg <- pr.curve(
+  scores.class0 = xgb_pred_180_ecg[actual_test_180_ecg == 1],
+  scores.class1 = xgb_pred_180_ecg[actual_test_180_ecg == 0],
+  curve = TRUE
+)
+
+plot(pr_xgb_180_ecg, main = "Precision-Recall Curve - XGBoost scaled 180 days ecg ", col = "red")
+
+# Calibration Curve
+xgb_calib_180_ecg <- get_calib_data(xgb_pred_180_ecg, actual_test_180_ecg)
+
+ggplot(xgb_calib_180_ecg, aes(x = bin_midpoint, y = observed)) +
+  geom_point() +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  labs(title = "Calibration Curve - XGBoost 180 days ecg", x = "Predicted Probability", y = "Observed Proportion") +
+  theme_minimal()
+
+# ROC Curve
+xgb_roc_180_ecg <- roc(response = test_180_ecg$afib_by_cutoff, predictor = xgb_pred_180_ecg)
+
+plot(xgb_roc_180_ecg, col = "blue", main = "ROC Curve - XGBoost 180 Days ECG")
+abline(a = 0, b = 1, lty = 2, col = "gray")
+
+auc(xgb_roc_180_ecg)
+```
+
+# Calibration Curves Together
+```{r, warning=FALSE}
+xgb_calib_180_noecg$model <- "XGB Calibration 180 No ECG"
+xgb_calib_180_ecg$model <- "XGB Calibration 180 ECG"
+
+combined_calib <- rbind(xgb_calib_180_noecg, xgb_calib_180_ecg)
+
+ggplot(combined_calib, aes(x = bin_midpoint, y = observed, color = model)) +
+  geom_point() +
+  geom_line() +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  labs(title = "Calibration Curve Comparison", x = "Predicted Probability", y = "Observed Proportion") +
+  theme_minimal()
+```
+
+# SHAP Plots for ECG and No ECG
+```{r, warning=FALSE}
+# NO ECG
+xgb_shap_180_noecg <- predict(xgb_model_180_noecg, newdata = xgb_test_180_noecg, predcontrib = TRUE)
+
+# Convert to data.table and remove BIAS term
+xgb_shap_180_noecg_dt <- data.table(xgb_shap_180_noecg)[, -"BIAS", with = FALSE]
+
+# Compute mean absolute SHAP value for each feature
+xgb_mean_shap_180_noecg <- xgb_shap_180_noecg_dt[, lapply(.SD, function(x) mean(abs(x)))]
+
+# Melt for plotting
+xgb_mean_shap_long_180_noecg <- melt(xgb_mean_shap_180_noecg , variable.name = "Feature", value.name = "MeanAbsSHAP")
+
+# Plot
+ggplot(xgb_mean_shap_long_180_noecg, aes(x = reorder(Feature, MeanAbsSHAP), y = MeanAbsSHAP)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "SHAP Feature Importance 180 No ECG", x = "Feature", y = "Mean |SHAP value|") +
+  theme_minimal()
+
+# ECG
+xgb_shap_180_ecg <- predict(xgb_model_180_ecg, newdata = xgb_test_180_ecg, predcontrib = TRUE)
+
+# Convert to data.table and remove BIAS term
+xgb_shap_180_ecg_dt <- data.table(xgb_shap_180_ecg)[, -"BIAS", with = FALSE]
+
+# Compute mean absolute SHAP value for each feature
+xgb_mean_shap_180_ecg <- xgb_shap_180_ecg_dt[, lapply(.SD, function(x) mean(abs(x)))]
+
+# Melt for plotting
+xgb_mean_shap_long_180_ecg <- melt(xgb_mean_shap_180_ecg , variable.name = "Feature", value.name = "MeanAbsSHAP")
+
+# Plot
+ggplot(xgb_mean_shap_long_180_ecg, aes(x = reorder(Feature, MeanAbsSHAP), y = MeanAbsSHAP)) +
+  geom_col(fill = "steelblue") +
+  coord_flip() +
+  labs(title = "SHAP Feature Importance 180 ECG", x = "Feature", y = "Mean |SHAP value|") +
+  theme_minimal()
+```
+
+
+
