@@ -156,3 +156,6 @@ set.seed(123)
 trainIndex <- createDataPartition(df180_noecg$afib_by_cutoff, p = 0.8, list = FALSE)
 train_180_noecg <- df180_noecg[trainIndex, ]
 test_180_noecg <- df180_noecg[-trainIndex, ]
+
+train_180_ecg <- df180_ecg[trainIndex, ]
+test_180_ecg <- df180_ecg[trainIndex, ]
