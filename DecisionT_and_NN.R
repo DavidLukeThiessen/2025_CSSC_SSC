@@ -72,7 +72,7 @@ auc(roc_obj)
 #365 Days NN
 vars_to_use2 <- c("demographics_age_index_ecg", "diabetes_combined", "event_cv_cad_acs_unstable_angina_icd10_prior", "event_cv_cns_tia_icd10_prior", "observed_alkaline_phophatase_peri", "observed_tchol_peri_highest", "observed_creatinine_peri", "outcome_all_cause_death", "hypertension_icd10", "observed_iron_peri", "observed_crp_high_sensitive_peri", "copd_icd10", "observed_tibc_peri", "observed_urine_alb_cr_ratio_peri", "event_cv_cns_stroke_ischemic_icd10_prior", "observed_hga1c_peri_highest", "pci_prior", "hcm_icd10", "lvad_cci_prior", "myocarditis_icd10_prior", "pacemaker_permanent_cci_prior", "obstructive_sleep_apnea_icd10")
 
-af_data_clean2 <- df365_cleaned[complete.cases(df365_cleaned[, vars_to_use]), ]
+af_data_clean2 <- df365_cleaned[complete.cases(df365_cleaned[, vars_to_use2]), ]
 
 set.seed(123)
 train_index <- createDataPartition(af_data_clean$afib_by_cutoff, p = 0.8, list = FALSE)
@@ -84,7 +84,7 @@ nn_formula2 <- as.formula(
 )
 
 nn_model2 <- nnet(nn_formula2,
-                 data = train_data,
+                 data = train_data2,
                  size = 5,
                  decay = 0.01,
                  maxit = 500,
