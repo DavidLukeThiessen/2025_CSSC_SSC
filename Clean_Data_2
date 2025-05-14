@@ -9,6 +9,9 @@ library(PRROC)
 library(pROC)
 library(caret)
 library(xgboost)
+library(ranger)
+library(ggplot2)
+library(caret)
 
 af_data <- read_xlsx("synthetic_data_stats_competition_2025_final.xlsx")
 
