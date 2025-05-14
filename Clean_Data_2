@@ -1,5 +1,4 @@
 # Prepare Data
-```{r, warning=FALSE}
 library(readxl)
 library(dplyr)
 library(data.table)
