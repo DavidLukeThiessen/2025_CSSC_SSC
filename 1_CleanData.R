@@ -59,7 +59,7 @@ vars_to_remove <- c(
   "lipid_fibrate_peri", "lipid_ezetimibe_peri", "lipid_PCKSK9_peri", "lipid_other_peri", "glucose_insulin_peri",
   "glucose_glp_1_agonsist_peri", "glucose_ohg_biguanide_peri", "glucose_ohg_alphagluc_peri", "glucose_ohg_dpp_4_peri", "glucose_ohg_sglt_2_peri", 
   "glucose_ohg_thiazolidine_peri", "glucose_ohg_repaglinide_peri", "glucose_ohg_sulfonylurea_peri", "glucose_ohg_other_peri", 
-  "smoking_cessation_oral_peri", "smoking_cessation_nicotine_replacement_peri", "patient_id", "outcome_afib_aflutter_new_post", 
+  "smoking_cessation_oral_peri", "smoking_cessation_nicotine_replacement_peri", "patient_id", "outcome_afib_aflutter_new_post", "outcome_all_cause_death",
   "time_to_outcome_afib_aflutter_new_post", "follow_up_duration", "time_to_outcome_all_cause_death")
 
 df180_cleaned <- df180 %>% select(-all_of(vars_to_remove))
