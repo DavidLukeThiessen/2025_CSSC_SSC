@@ -191,12 +191,21 @@ ggplot(xgb_mean_shap_long_180_ecg, aes(x = reorder(Feature, MeanAbsSHAP), y = Me
   labs(title = "SHAP Feature Importance 180 ECG", x = "Feature", y = "Mean |SHAP value|") +
   theme_minimal()
 ```
+# Manual plotting of PR curves
+plot(pr_xgb_180_noecg$curve[,1], pr_xgb_180_noecg$curve[,2],
+     type = "l", col = "blue", lwd = 2,
+     xlab = "Recall", ylab = "Precision",
+     xlim = c(0, 1), ylim = c(0, 1),
+     main = "")  # Leave main empty
 
-```{r}
-plot(pr_xgb_180_noecg, col = "blue", main = "PR Curve - XGBoost")
-lines(pr_xgb_180_ecg$curve[,1:2], col = "darkgreen")
-legend("topright", legend = c("Without ECG", "With ECG"), col = c("blue", "darkgreen"), lwd = 2)
-```
+# Add second PR curve
+lines(pr_xgb_180_ecg$curve[,1], pr_xgb_180_ecg$curve[,2],
+      col = "darkgreen", lwd = 2)
 
+# Add legend
+legend("topright", legend = c("Without ECG", "With ECG"),
+       col = c("blue", "darkgreen"), lwd = 2)
 
+# Add multiline title
+title(main = "PR Curve - XGBoost\nPR AUC (Without ECG): 0.0425 | PR AUC (With ECG): 0.128")
 
