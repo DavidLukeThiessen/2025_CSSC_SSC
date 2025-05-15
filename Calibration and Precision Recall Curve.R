@@ -99,20 +99,32 @@ xgb_pred <- predict(xgb_model, xgb_test)
 
 actual <- as.numeric(as.character(test$afib_by_cutoff))
 # Precision Recall Curve for RF
-pr_rf <- pr.curve(
-  scores.class0 = rf_pred[actual == 1],
-  scores.class1 = rf_pred[actual == 0],
-  curve = TRUE
-)
-plot(pr_rf, main = "Precision-Recall Curve - Random Forest", col = "blue")
+pr_auc_noecg <- round(pr_rf_180_noecg$auc.integral, 4)
+pr_auc_ecg   <- round(pr_rf_180_ecg$auc.integral, 4)
+
+title_text <- paste0("PR Curve - Random Forest\n",
+                     "PR AUC (Without ECG): ", pr_auc_noecg,
+                     " | PR AUC (With ECG): ", pr_auc_ecg)
+
+plot(pr_rf_180_noecg, col = "blue", main = title_text, auc.main = FALSE)
+lines(pr_rf_180_ecg$curve[, 1:2], col = "darkgreen")
+
+legend("topright", legend = c("Without ECG", "With ECG"),
+       col = c("blue", "darkgreen"), lwd = 2)
 
 # Precision Recall Curve for XGBoost
-pr_xgb <- pr.curve(
-  scores.class0 = xgb_pred[actual == 1],
-  scores.class1 = xgb_pred[actual == 0],
-  curve = TRUE
-)
-plot(pr_xgb, main = "Precision-Recall Curve - XGBoost", col = "red")
+pr_auc_xgb_noecg <- round(pr_xgb_180_noecg$auc.integral, 3)
+pr_auc_xgb_ecg   <- round(pr_xgb_180_ecg$auc.integral, 3)
+
+title_xgb <- paste0("PR Curve - XGBoost\n",
+                    "PR AUC (Without ECG): ", pr_auc_xgb_noecg,
+                    " | PR AUC (With ECG): ", pr_auc_xgb_ecg)
+
+plot(pr_xgb_180_noecg, col = "blue", main = title_xgb, auc.main = FALSE)
+lines(pr_xgb_180_ecg$curve[, 1:2], col = "darkgreen")
+
+legend("bottomleft", legend = c("Without ECG", "With ECG"),
+       col = c("blue", "darkgreen"), lwd = 2)
 
 # ----- Calibration Curve -------
 
