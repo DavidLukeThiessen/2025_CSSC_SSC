@@ -185,7 +185,7 @@ ggplot(NN_calib_180, aes(x = bin_midpoint, y = observed)) +
   geom_point() +
   geom_line() +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
-  labs(title = "Calibration Curve - NN 180 days", x = "Predicted Probability", y = "Observed Proportion") +
+  labs(title = "Calibration Curve - NN 180 days No ECG", x = "Predicted Probability", y = "Observed Proportion") +
   theme_minimal()
 ```
 
